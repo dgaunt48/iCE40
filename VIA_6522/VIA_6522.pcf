@@ -1,0 +1,23 @@
+
+set_io clk                  21		# Vic20 1,108,404 Hz clock
+
+# FIXME!!! The Following Pins Are All Random, Assign Them To The Hardware!!!
+
+set_io bReset_n             128     # Reset VIA Active Low
+set_io bCS                  129     # Chip Select Active Hi
+set_io bCS_n                130     # Chip Select Active Low
+set_io bRead                141
+
+set_io nRS[0]               142     # 4 Bit Register Address
+set_io nRS[1]               143
+set_io nRS[2]               144
+set_io nRS[3]               135
+
+set_io nData[0]             136     # 8 Bit Data Bus
+set_io nData[1]             137
+set_io nData[2]             138
+set_io nData[3]             139
+set_io nData[4]             101
+set_io nData[5]             102
+set_io nData[6]             104
+set_io nData[7]             105

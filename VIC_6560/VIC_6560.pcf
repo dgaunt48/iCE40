@@ -1,0 +1,31 @@
+
+set_io vga_clk              21      # 25 MHz Clock
+set_io vga_vsync            128
+set_io vga_hsync            129
+
+set_io vga_b[7]             110
+set_io vga_b[6]             112
+set_io vga_b[5]             113
+set_io vga_b[4]             114
+set_io vga_b[3]             115
+set_io vga_b[2]             116
+set_io vga_b[1]             117
+set_io vga_b[0]             118
+
+set_io vga_g[7]             119
+set_io vga_g[6]             120
+set_io vga_g[5]             121
+set_io vga_g[4]             122
+set_io vga_g[3]             124
+set_io vga_g[2]             125
+set_io vga_g[1]             130
+set_io vga_g[0]             134
+
+set_io vga_r[7]             135
+set_io vga_r[6]             136
+set_io vga_r[5]             137
+set_io vga_r[4]             138
+set_io vga_r[3]             139
+set_io vga_r[2]             141
+set_io vga_r[1]             142
+set_io vga_r[0]             143

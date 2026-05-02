@@ -1,0 +1,29 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Sat May 02 10:14:03 2026
+[*]
+[dumpfile] "E:\APIO\iCE40\VIA_6522\_build\default\VIA_6522_tb.vcd"
+[dumpfile_mtime] "Sat May 02 10:13:34 2026"
+[dumpfile_size] 6028
+[savefile] "E:\APIO\iCE40\VIA_6522\VIA_6522_tb.gtkw"
+[timestart] 0
+[size] 1273 720
+[pos] -1 -1
+*-21.446142 2550000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 246
+[signals_width] 110
+[sst_expanded] 1
+[sst_vpaned_height] 198
+@28
+VIA_6522_TB.bReset_n
+VIA_6522_TB.bCS
+VIA_6522_TB.bCS_n
+VIA_6522_TB.bRead
+VIA_6522_TB.clk
+@22
+VIA_6522_TB.UUT.nRS[3:0]
+VIA_6522_TB.UUT.nData[7:0]
+@28
+VIA_6522_TB.UUT.bCSTest
+[pattern_trace] 1
+[pattern_trace] 0

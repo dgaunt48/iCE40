@@ -1,0 +1,5 @@
+set_io -nowarn clk_in 52
+set_io aLEDs[0] 60
+set_io aLEDs[1] 61
+set_io aButtons[0] 62
+set_io aButtons[1] 63

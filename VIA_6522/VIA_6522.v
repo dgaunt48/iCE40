@@ -4,6 +4,8 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
+// FPGA Usage 117 LC 1% @ 189 Mhz
+
 module VIA_6522(
 	input wire clk,
 	input wire bReset_n,
@@ -11,7 +13,10 @@ module VIA_6522(
 	input wire bCS_n,
 	input wire bRead,
 	input wire [3:0] nRS,
-	inout wire [7:0] nData
+
+	inout wire [7:0] nData,
+
+	output wire bIRQ_n
 );
 
 `include "VIARegisters.vh"
@@ -36,7 +41,10 @@ module VIA_6522(
 	reg [7:0] nTestData = 0;
 `endif
 
-assign nData = bRead ? 8'hAA : 8'bz;
+reg [7:0] nWriteData = 0;
+assign nData = (bRead & clk) ? nWriteData : 8'bz;
+
+assign bIRQ_n = ~aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT];
 
 always @ (posedge clk)		// Vic20 1,108,404 Hz clock
 begin
@@ -63,9 +71,17 @@ begin
 		begin
 			if (bRead)
 			begin
+				// Read Data From The 6522 VIA Registers
+				case (nRS)
+					VIA_REG_IFR:		// RS 13
+					begin
+						nWriteData <= aVIA[VIA_REG_IFR];
+					end
+				endcase
 			end
 			else
 			begin
+				// Write Data To The 6522 VIA Registers
 				case (nRS)
 					VIA_REG_T1CL:		// RS 4
 					begin
@@ -85,7 +101,7 @@ begin
 						aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
 
 						// Reset Timer 1 Interrupt Flag
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_LSB] <= 1'b0;
+						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
 					end
 
 					VIA_REG_ACR:		// RS 11
@@ -94,13 +110,21 @@ begin
 						aVIA[VIA_REG_ACR] <= nData;
 					end
 
+					VIA_REG_IFR:		// RS 13
+					begin
+						// Writing A 1 In The Low 7 Bits Of the Interrupt Flags Register Will Clear That Flag.
+						// Bit 7 Is The IRQ Flag, It Can Only Be Cleared By Clearing All Other Flags.
+						aVIA[VIA_REG_IFR][6:0] <= aVIA[VIA_REG_IFR][6:0] & ~nData[6:0];
+						aVIA[VIA_REG_IFR][7] <= |(aVIA[VIA_REG_IFR][6:0] & ~nData[6:0]);
+					end
+
 					VIA_REG_IER:		// RS 14
 					begin
 						// Set / Clear Flags In Interrupt Enable Register
-						if (nData[VIA_IER_SET_CLR_LSB])
-							aVIA[VIA_REG_IER][VIA_IER_T1_LSB:VIA_IER_CA2_LSB] <= aVIA[VIA_REG_IER][VIA_IER_T1_LSB:VIA_IER_CA2_LSB] | nData[VIA_IER_T1_LSB:VIA_IER_CA2_LSB];
+						if (nData[7])
+							aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] | nData[6:0];
 						else
-							aVIA[VIA_REG_IER][VIA_IER_T1_LSB:VIA_IER_CA2_LSB] <= aVIA[VIA_REG_IER][VIA_IER_T1_LSB:VIA_IER_CA2_LSB] & ~nData[VIA_IER_T1_LSB:VIA_IER_CA2_LSB];
+							aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] & ~nData[6:0];
 					end
 				endcase
 			end
@@ -121,8 +145,9 @@ begin
 				// Transfer Timer 1 Low Order Latch Into Low Order Counter
 				aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
 
-				// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit.
-				aVIA[VIA_REG_IFR][VIA_IFR_T1_LSB] <= aVIA[VIA_REG_IER][VIA_IER_T1_LSB];
+				// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
+				aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+				aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] | aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
 			end
 		end
 	end

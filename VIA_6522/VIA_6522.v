@@ -4,7 +4,7 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
-// FPGA Usage 117 LC 1% @ 189 Mhz
+// FPGA Usage 153 LC 1% @ 166 Mhz
 
 module VIA_6522(
 	input wire clk,
@@ -41,8 +41,11 @@ module VIA_6522(
 	reg [7:0] nTestData = 0;
 `endif
 
+wire bChipSelect;
+assign bChipSelect = bCS & ~bCS_n & clk;
+
 reg [7:0] nWriteData = 0;
-assign nData = (bRead & clk) ? nWriteData : 8'bz;
+assign nData = (bRead & bChipSelect) ? nWriteData : 8'bz;
 
 assign bIRQ_n = ~aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT];
 
@@ -67,12 +70,43 @@ begin
 		if (0 == aVIA[VIA_REG_T1CL])
 			aVIA[VIA_REG_T1CH] <= aVIA[VIA_REG_T1CH] - 1;
 
-		if ((!bCS_n) && (bCS))
+		//----------------------------------------------------------------------------------------
+		//---- 6522 Chip Selected So Do Data I/O	                                       	  ----
+		//----------------------------------------------------------------------------------------
+		if (bCS & ~bCS_n)
 		begin
 			if (bRead)
 			begin
-				// Read Data From The 6522 VIA Registers
+				//--------------------------------------------------------------------------------
+				//---- 6522 Register Read Functions                                       	  ----
+				//--------------------------------------------------------------------------------
 				case (nRS)
+					VIA_REG_T1CL:		// RS 4
+					begin
+						nWriteData <= aVIA[VIA_REG_T1CL];
+
+						// Reset Timer 1 Interrupt Flag
+						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+
+						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
+					end
+
+					VIA_REG_T1CH:		// RS 5
+					begin
+						nWriteData <= aVIA[VIA_REG_T1CH];
+					end
+
+					VIA_REG_T1LL:		// RS 6
+					begin
+						nWriteData <= aVIA[VIA_REG_T1LL];
+					end
+
+					VIA_REG_T1LH:		// RS 7
+					begin
+						nWriteData <= aVIA[VIA_REG_T1LH];
+					end
+
 					VIA_REG_IFR:		// RS 13
 					begin
 						nWriteData <= aVIA[VIA_REG_IFR];
@@ -81,7 +115,9 @@ begin
 			end
 			else
 			begin
-				// Write Data To The 6522 VIA Registers
+				//--------------------------------------------------------------------------------
+				//---- 6522 Register Write Functions                                       	  ----
+				//--------------------------------------------------------------------------------
 				case (nRS)
 					VIA_REG_T1CL:		// RS 4
 					begin
@@ -91,17 +127,38 @@ begin
 
 					VIA_REG_T1CH:		// RS 5
 					begin
-						// Write To Timer 1 High Order Latch
-						aVIA[VIA_REG_T1LH] <= nData;
-
 						// Write To Timer 1 High Order Counter
 						aVIA[VIA_REG_T1CH] <= nData;
 
 						// Transfer Timer 1 Low Order Latch Into Low Order Counter
 						aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
 
+						// Write To Timer 1 High Order Latch
+						aVIA[VIA_REG_T1LH] <= nData;
+
 						// Reset Timer 1 Interrupt Flag
 						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+
+						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
+					end
+
+					VIA_REG_T1LL:		// RS 6
+					begin
+						// Write To Timer 1 Low Order Latch
+						aVIA[VIA_REG_T1LL] <= nData;
+					end
+
+					VIA_REG_T1LH:		// RS 7
+					begin
+						// Write To Timer 1 High Order Latch
+						aVIA[VIA_REG_T1LH] <= nData;
+
+						// Reset Timer 1 Interrupt Flag
+						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+
+						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
 					end
 
 					VIA_REG_ACR:		// RS 11
@@ -130,9 +187,18 @@ begin
 			end
 		end
 
+		//----------------------------------------------------------------------------------------
+		//---- 6522 Do Timing & Interrupts Reguardless Of Chip Select State                	  ----
+		//----------------------------------------------------------------------------------------
 		if (0 == aVIA[VIA_REG_ACR][VIA_ACR_TIMER1_CTRL_LSB])
 		begin
 			// Timer 1 - One Shot Mode
+			if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
+			begin
+				// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
+				aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+				aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] | aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+			end
 		end
 		else
 		begin

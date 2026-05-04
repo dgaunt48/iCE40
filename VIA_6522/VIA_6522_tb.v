@@ -8,6 +8,8 @@
 `define DUMPSTR(x) `"x.vcd`"
 `timescale 100ns / 10ns
 
+`define TEST_TIMER_1
+
 `include "VIARegisters.vh"
 
 module VIA_6522_TB();
@@ -61,6 +63,7 @@ initial begin
 	#6 bRead = 1;
 	bCS_n = 1;
 
+`ifdef TEST_TIMER_1
 	#2 bCS_n = 0;					// Write 0x40 To ACR Putting Timer 1 Into Free Running Mode
 	nRS = VIA_REG_ACR;
 	nWriteData = 8'h40;
@@ -85,13 +88,40 @@ initial begin
 	#65								// Read Interrupt Flags Register
 	nRS = VIA_REG_IFR;
 	#1 bCS_n = 0;
-	#5 bCS_n = 1;
+	#7 bCS_n = 1;
 
+	if (nData != 8'hC0)
+		$error("Interrupt Flag Error!");
 
-	nWriteData = 8'h40;
+	if (bIRQ_n != 0)
+		$error("IRQ Set Flag Error!");
+/*
+	nWriteData = 8'h40;				// Reset IRQ By Clearing The Timer 1 IFR Bit
 	#2 bRead = 0;
 	bCS_n = 0;
-	#5 bCS_n = 1;
+	#7 bCS_n = 1;
+
+	nWriteData = 8'h00;				// Reset IRQ By ReWriting Timer 1 High Order Latch
+	nRS = VIA_REG_T1LH;
+	#2 bRead = 0;
+	bCS_n = 0;
+	#7 bCS_n = 1;
+*/
+	nRS = VIA_REG_T1CL;				// Reset IRQ By Reading Timer 1 Low Order Counter
+	#2 bCS_n = 0;
+	#7 bCS_n = 1;
+
+	if (bIRQ_n != 1)
+		$error("IRQ Reset Flag Error!");
+
+	#20 nRS = VIA_REG_ACR;
+	nWriteData = 8'h00;				// Switch Timer 1 Into Single Shot Mode
+	bRead = 0;
+	#1 bCS_n = 0;
+	#6 bRead = 1;
+	bCS_n = 1;
+
+`endif // TEST_TIMER_1
 
 
 	#(DURATION) $display("End of simulation");

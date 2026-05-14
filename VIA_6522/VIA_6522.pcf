@@ -1,5 +1,4 @@
-
-set_io clk                  21		# Vic20 1,108,404 Hz clock
+set_io bPhase2Clock         21		# Vic20 1,108,404 Hz clock
 
 set_io bReset_n             23      # Reset VIA Active Low
 set_io bCS                  24      # Chip Select Active Hi

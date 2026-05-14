@@ -4,10 +4,10 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
-// FPGA Usage 153 LC 1% @ 166 Mhz
+// FPGA Usage 184 LC 2% @ 148 Mhz
 
 module VIA_6522(
-	input wire clk,
+	input wire bPhase2Clock,
 	input wire bReset_n,
 	input wire bCS,
 	input wire bCS_n,
@@ -42,16 +42,16 @@ module VIA_6522(
 `endif
 
 wire bChipSelect;
-assign bChipSelect = bCS & ~bCS_n & clk;
+assign bChipSelect = bCS & ~bCS_n & bPhase2Clock;
 
 reg [7:0] nWriteData = 0;
 assign nData = (bRead & bChipSelect) ? nWriteData : 8'bz;
 
 assign bIRQ_n = ~aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT];
 
-always @ (posedge clk)		// Vic20 1,108,404 Hz clock
+always @ (posedge bPhase2Clock)		// Vic20 1,108,404 Hz clock
 begin
-	if (0 == bReset_n)		// Reset all VIA Registers to 0 except T1, T2 and SR
+	if (0 == bReset_n)				// Reset all VIA Registers to 0 except T1, T2 and SR
 	begin
 		aVIA[VIA_REG_ORB] <= 8'h00;
 		aVIA[VIA_REG_ORA] <= 8'h00;
@@ -81,6 +81,16 @@ begin
 				//---- 6522 Register Read Functions                                       	  ----
 				//--------------------------------------------------------------------------------
 				case (nRS)
+					VIA_REG_DDRB:		// RS 2
+					begin
+						nWriteData <= aVIA[VIA_REG_DDRB];
+					end
+
+					VIA_REG_DDRA:		// RS 3
+					begin
+						nWriteData <= aVIA[VIA_REG_DDRA];
+					end
+
 					VIA_REG_T1CL:		// RS 4
 					begin
 						nWriteData <= aVIA[VIA_REG_T1CL];
@@ -111,6 +121,12 @@ begin
 					begin
 						nWriteData <= aVIA[VIA_REG_IFR];
 					end
+
+					VIA_REG_IER:		// RS 14
+					begin
+						nWriteData <= aVIA[VIA_REG_IER];
+					end
+
 				endcase
 			end
 			else
@@ -119,6 +135,16 @@ begin
 				//---- 6522 Register Write Functions                                       	  ----
 				//--------------------------------------------------------------------------------
 				case (nRS)
+					VIA_REG_DDRB:		// RS 2
+					begin
+						aVIA[VIA_REG_DDRB] <= nData;
+					end
+
+					VIA_REG_DDRA:		// RS 3
+					begin
+						aVIA[VIA_REG_DDRA] <= nData;
+					end
+
 					VIA_REG_T1CL:		// RS 4
 					begin
 						// Any Writes To Timer 1 Counter Low Are Stored In Timer 1 Latch Low

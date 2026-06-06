@@ -145,6 +145,56 @@ begin
 					endcase
 				end
 			end
+
+			if (bCopyNextClock)
+			begin
+				bCopyNextClock <= 0;
+
+				// Transfer Timer 1 High Order Latch Into High Order Counter
+				aVIA[VIA_REG_T1CH] <= aVIA[VIA_REG_T1LH];
+
+				// Transfer Timer 1 Low Order Latch Into Low Order Counter
+				aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
+
+				bIRQ_n <= ~aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+			end
+
+			//----------------------------------------------------------------------------------------
+			//---- 6522 Do Timing & Interrupts Reguardless Of Chip Select State                	  ----
+			//----------------------------------------------------------------------------------------
+			if (0 == aVIA[VIA_REG_ACR][VIA_ACR_TIMER1_CTRL_LSB])
+			begin
+				// Timer 1 - One Shot Mode
+				if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
+				begin
+					// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
+					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] | aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+				end
+			end
+			else
+			begin
+				// Timer 1 - Free Running Mode
+				if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
+				begin
+					bCopyNextClock <= 1;
+
+					// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
+					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+
+					bIRQ_n <= ~aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+				end
+			end
+
+			if (!aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT])
+				bIRQ_n <= 1;
+
+			// Clear IRQ On Falling Edge Of Phase 2 Clock
+			// if (!aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT])
+			// 	bIRQ_n <= 1;
+
+//			bIRQ_n <= ~aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT];
 		end
 		else if (nClockDivider == 3)
 		begin
@@ -236,60 +286,6 @@ begin
 					endcase
 				end
 			end
-
-			//----------------------------------------------------------------------------------------
-			//---- 6522 Do Timing & Interrupts Reguardless Of Chip Select State                	  ----
-			//----------------------------------------------------------------------------------------
-			if (0 == aVIA[VIA_REG_ACR][VIA_ACR_TIMER1_CTRL_LSB])
-			begin
-				// Timer 1 - One Shot Mode
-				if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
-				begin
-					// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
-					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] | aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-				end
-			end
-			else
-			begin
-				// Timer 1 - Free Running Mode
-				if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
-				begin
-					bCopyNextClock <= 1;
-
-					// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
-					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-
-					bIRQ_n <= ~aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-				end
-			end
-
-			if (!aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT])
-				bIRQ_n <= 1;
-
-		end
-		else if (nClockDivider == 1)
-		begin
-		if (bCopyNextClock)
-		begin
-			bCopyNextClock <= 0;
-
-			// Transfer Timer 1 High Order Latch Into High Order Counter
-			aVIA[VIA_REG_T1CH] <= aVIA[VIA_REG_T1LH];
-
-			// Transfer Timer 1 Low Order Latch Into Low Order Counter
-			aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
-
-			bIRQ_n <= ~aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-		end
-
-
-			// Clear IRQ On Falling Edge Of Phase 2 Clock
-			// if (!aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT])
-			// 	bIRQ_n <= 1;
-
-//			bIRQ_n <= ~aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT];
 		end
 	end
 end

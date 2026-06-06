@@ -1,4 +1,4 @@
-set_io bPhase2Clock         21		# Vic20 1,108,404 Hz clock
+set_io bVicClock            21		# Vic20 4,433,616 Hz clock
 
 set_io bReset_n             23      # Reset VIA Active Low
 set_io bCS                  24      # Chip Select Active Hi
@@ -19,3 +19,5 @@ set_io nData[4]             7
 set_io nData[5]             8
 set_io nData[6]             9
 set_io nData[7]             10
+
+set_io bPhase2Clock         29		# Vic20 1,108,404 Hz clock

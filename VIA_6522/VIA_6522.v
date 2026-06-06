@@ -4,10 +4,10 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
-// FPGA Usage 184 LC 2% @ 148 Mhz
+// FPGA Usage 192 LC 2% @ 157 Mhz
 
 module VIA_6522(
-	input wire bPhase2Clock,
+	input wire bVicClock,
 	input wire bReset_n,
 	input wire bCS,
 	input wire bCS_n,
@@ -16,7 +16,8 @@ module VIA_6522(
 
 	inout wire [7:0] nData,
 
-	output wire bIRQ_n
+	output reg bIRQ_n,
+	output wire bPhase2Clock
 );
 
 `include "VIARegisters.vh"
@@ -37,22 +38,36 @@ module VIA_6522(
 	assign sim_ACR = aVIA[VIA_REG_ACR];
 	assign sim_IER = aVIA[VIA_REG_IER];
 	assign sim_IFR = aVIA[VIA_REG_IFR];
-
-	reg [7:0] nTestData = 0;
 `endif
+
+reg [1:0] nClockDivider;
+assign bPhase2Clock = nClockDivider[1];
 
 wire bChipSelect;
 assign bChipSelect = bCS & ~bCS_n & bPhase2Clock;
 
-reg [7:0] nWriteData = 0;
-assign nData = (bRead & bChipSelect) ? nWriteData : 8'bz;
+reg [7:0] nBusOutput;
+assign nData = (bRead & bChipSelect) ? nBusOutput : 8'bz;
 
-assign bIRQ_n = ~aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT];
+reg bCopyNextClock;
 
-always @ (posedge bPhase2Clock)		// Vic20 1,108,404 Hz clock
+always @ (posedge bVicClock)		// Vic20 4,433,616 Hz clock
 begin
 	if (0 == bReset_n)				// Reset all VIA Registers to 0 except T1, T2 and SR
 	begin
+		nBusOutput <= 8'hAA;
+		nClockDivider <= 2'b00;
+		bCopyNextClock <= 1'b0;
+
+`ifndef SYNTHESIS
+		// aVIA[VIA_REG_T1CL] <= 8'h00;
+		// aVIA[VIA_REG_T1CH] <= 8'h00;
+		// aVIA[VIA_REG_T1LL] <= 8'h00;
+		// aVIA[VIA_REG_T1LH] <= 8'h00;
+		// aVIA[VIA_REG_ACR] <= 8'h00;
+		// aVIA[VIA_REG_IER] <= 8'h00;
+		// aVIA[VIA_REG_IFR] <= 8'h00;
+`endif
 		aVIA[VIA_REG_ORB] <= 8'h00;
 		aVIA[VIA_REG_ORA] <= 8'h00;
 		aVIA[VIA_REG_DDRB] <= 8'h00;
@@ -64,183 +79,217 @@ begin
 	end
 	else
 	begin
-		// Decrement Timer 1 Counter
-		aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1CL] - 1;
+		nClockDivider <= nClockDivider + 1;
 
-		if (0 == aVIA[VIA_REG_T1CL])
-			aVIA[VIA_REG_T1CH] <= aVIA[VIA_REG_T1CH] - 1;
-
-		//----------------------------------------------------------------------------------------
-		//---- 6522 Chip Selected So Do Data I/O	                                       	  ----
-		//----------------------------------------------------------------------------------------
-		if (bCS & ~bCS_n)
+		if (nClockDivider == 1)
 		begin
-			if (bRead)
+			// Decrement Timer 1 Counter
+			aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1CL] - 1;
+
+			if (0 == aVIA[VIA_REG_T1CL])
+				aVIA[VIA_REG_T1CH] <= aVIA[VIA_REG_T1CH] - 1;
+
+			if (bCS & ~bCS_n)
 			begin
-				//--------------------------------------------------------------------------------
-				//---- 6522 Register Read Functions                                       	  ----
-				//--------------------------------------------------------------------------------
-				case (nRS)
-					VIA_REG_DDRB:		// RS 2
-					begin
-						nWriteData <= aVIA[VIA_REG_DDRB];
-					end
+				if (bRead)
+				begin
+					//--------------------------------------------------------------------------------
+					//---- 6522 Register Read Functions                                       	  ----
+					//--------------------------------------------------------------------------------
+					case (nRS)
+						VIA_REG_DDRB:		// RS 2
+						begin
+							nBusOutput <= aVIA[VIA_REG_DDRB];
+						end
 
-					VIA_REG_DDRA:		// RS 3
-					begin
-						nWriteData <= aVIA[VIA_REG_DDRA];
-					end
+						VIA_REG_DDRA:		// RS 3
+						begin
+							nBusOutput <= aVIA[VIA_REG_DDRA];
+						end
 
-					VIA_REG_T1CL:		// RS 4
-					begin
-						nWriteData <= aVIA[VIA_REG_T1CL];
+						VIA_REG_T1CL:		// RS 4
+						begin
+							nBusOutput <= aVIA[VIA_REG_T1CL];
 
-						// Reset Timer 1 Interrupt Flag
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+							// Reset Timer 1 Interrupt Flag
+							aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
 
-						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
-						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
-					end
+							// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+							aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
+						end
 
-					VIA_REG_T1CH:		// RS 5
-					begin
-						nWriteData <= aVIA[VIA_REG_T1CH];
-					end
+						VIA_REG_T1CH:		// RS 5
+						begin
+							nBusOutput <= aVIA[VIA_REG_T1CH];
+						end
 
-					VIA_REG_T1LL:		// RS 6
-					begin
-						nWriteData <= aVIA[VIA_REG_T1LL];
-					end
+						VIA_REG_T1LL:		// RS 6
+						begin
+							nBusOutput <= aVIA[VIA_REG_T1LL];
+						end
 
-					VIA_REG_T1LH:		// RS 7
-					begin
-						nWriteData <= aVIA[VIA_REG_T1LH];
-					end
+						VIA_REG_T1LH:		// RS 7
+						begin
+							nBusOutput <= aVIA[VIA_REG_T1LH];
+						end
 
-					VIA_REG_IFR:		// RS 13
-					begin
-						nWriteData <= aVIA[VIA_REG_IFR];
-					end
+						VIA_REG_IFR:		// RS 13
+						begin
+							nBusOutput <= aVIA[VIA_REG_IFR];
+						end
 
-					VIA_REG_IER:		// RS 14
-					begin
-						nWriteData <= aVIA[VIA_REG_IER];
-					end
+						VIA_REG_IER:		// RS 14
+						begin
+							nBusOutput <= aVIA[VIA_REG_IER];
+						end
+					endcase
+				end
+			end
+		end
+		else if (nClockDivider == 3)
+		begin
+			//----------------------------------------------------------------------------------------
+			//---- 6522 Chip Selected So Do Data I/O	                                       	  ----
+			//----------------------------------------------------------------------------------------
+			if (bCS & ~bCS_n)
+			begin
+				if (!bRead)
+				begin
+					//--------------------------------------------------------------------------------
+					//---- 6522 Register Write Functions                                       	  ----
+					//--------------------------------------------------------------------------------
+					case (nRS)
+						VIA_REG_DDRB:		// RS 2
+						begin
+							aVIA[VIA_REG_DDRB] <= nData;
+						end
 
-				endcase
+						VIA_REG_DDRA:		// RS 3
+						begin
+							aVIA[VIA_REG_DDRA] <= nData;
+						end
+
+						VIA_REG_T1CL:		// RS 4
+						begin
+							// Any Writes To Timer 1 Counter Low Are Stored In Timer 1 Latch Low
+							aVIA[VIA_REG_T1LL] <= nData;
+						end
+
+						VIA_REG_T1CH:		// RS 5
+						begin
+							// Write To Timer 1 High Order Counter
+							aVIA[VIA_REG_T1CH] <= nData;
+
+							// Transfer Timer 1 Low Order Latch Into Low Order Counter
+							aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
+
+							// Write To Timer 1 High Order Latch
+							aVIA[VIA_REG_T1LH] <= nData;
+
+							// Reset Timer 1 Interrupt Flag
+							aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+
+							// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+							aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
+						end
+
+						VIA_REG_T1LL:		// RS 6
+						begin
+							// Write To Timer 1 Low Order Latch
+							aVIA[VIA_REG_T1LL] <= nData;
+						end
+
+						VIA_REG_T1LH:		// RS 7
+						begin
+							// Write To Timer 1 High Order Latch
+							aVIA[VIA_REG_T1LH] <= nData;
+
+							// Reset Timer 1 Interrupt Flag
+							aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+
+							// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+							aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
+						end
+
+						VIA_REG_ACR:		// RS 11
+						begin
+							// Write Value To Auxillary Control Register
+							aVIA[VIA_REG_ACR] <= nData;
+						end
+
+						VIA_REG_IFR:		// RS 13
+						begin
+							// Writing A 1 In The Low 7 Bits Of the Interrupt Flags Register Will Clear That Flag.
+							// Bit 7 Is The IRQ Flag, It Can Only Be Cleared By Clearing All Other Flags.
+							aVIA[VIA_REG_IFR][6:0] <= aVIA[VIA_REG_IFR][6:0] & ~nData[6:0];
+							aVIA[VIA_REG_IFR][7] <= |(aVIA[VIA_REG_IFR][6:0] & ~nData[6:0]);
+						end
+
+						VIA_REG_IER:		// RS 14
+						begin
+							// Set / Clear Flags In Interrupt Enable Register
+							if (nData[7])
+								aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] | nData[6:0];
+							else
+								aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] & ~nData[6:0];
+						end
+					endcase
+				end
+			end
+
+			//----------------------------------------------------------------------------------------
+			//---- 6522 Do Timing & Interrupts Reguardless Of Chip Select State                	  ----
+			//----------------------------------------------------------------------------------------
+			if (0 == aVIA[VIA_REG_ACR][VIA_ACR_TIMER1_CTRL_LSB])
+			begin
+				// Timer 1 - One Shot Mode
+				if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
+				begin
+					// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
+					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] | aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+				end
 			end
 			else
 			begin
-				//--------------------------------------------------------------------------------
-				//---- 6522 Register Write Functions                                       	  ----
-				//--------------------------------------------------------------------------------
-				case (nRS)
-					VIA_REG_DDRB:		// RS 2
-					begin
-						aVIA[VIA_REG_DDRB] <= nData;
-					end
+				// Timer 1 - Free Running Mode
+				if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
+				begin
+					bCopyNextClock <= 1;
 
-					VIA_REG_DDRA:		// RS 3
-					begin
-						aVIA[VIA_REG_DDRA] <= nData;
-					end
+					// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
+					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
 
-					VIA_REG_T1CL:		// RS 4
-					begin
-						// Any Writes To Timer 1 Counter Low Are Stored In Timer 1 Latch Low
-						aVIA[VIA_REG_T1LL] <= nData;
-					end
-
-					VIA_REG_T1CH:		// RS 5
-					begin
-						// Write To Timer 1 High Order Counter
-						aVIA[VIA_REG_T1CH] <= nData;
-
-						// Transfer Timer 1 Low Order Latch Into Low Order Counter
-						aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
-
-						// Write To Timer 1 High Order Latch
-						aVIA[VIA_REG_T1LH] <= nData;
-
-						// Reset Timer 1 Interrupt Flag
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
-
-						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
-						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
-					end
-
-					VIA_REG_T1LL:		// RS 6
-					begin
-						// Write To Timer 1 Low Order Latch
-						aVIA[VIA_REG_T1LL] <= nData;
-					end
-
-					VIA_REG_T1LH:		// RS 7
-					begin
-						// Write To Timer 1 High Order Latch
-						aVIA[VIA_REG_T1LH] <= nData;
-
-						// Reset Timer 1 Interrupt Flag
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
-
-						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
-						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
-					end
-
-					VIA_REG_ACR:		// RS 11
-					begin
-						// Write Value To Auxillary Control Register
-						aVIA[VIA_REG_ACR] <= nData;
-					end
-
-					VIA_REG_IFR:		// RS 13
-					begin
-						// Writing A 1 In The Low 7 Bits Of the Interrupt Flags Register Will Clear That Flag.
-						// Bit 7 Is The IRQ Flag, It Can Only Be Cleared By Clearing All Other Flags.
-						aVIA[VIA_REG_IFR][6:0] <= aVIA[VIA_REG_IFR][6:0] & ~nData[6:0];
-						aVIA[VIA_REG_IFR][7] <= |(aVIA[VIA_REG_IFR][6:0] & ~nData[6:0]);
-					end
-
-					VIA_REG_IER:		// RS 14
-					begin
-						// Set / Clear Flags In Interrupt Enable Register
-						if (nData[7])
-							aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] | nData[6:0];
-						else
-							aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] & ~nData[6:0];
-					end
-				endcase
+					bIRQ_n <= ~aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+				end
 			end
+
+			if (!aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT])
+				bIRQ_n <= 1;
+
+		end
+		else if (nClockDivider == 1)
+		begin
+		if (bCopyNextClock)
+		begin
+			bCopyNextClock <= 0;
+
+			// Transfer Timer 1 High Order Latch Into High Order Counter
+			aVIA[VIA_REG_T1CH] <= aVIA[VIA_REG_T1LH];
+
+			// Transfer Timer 1 Low Order Latch Into Low Order Counter
+			aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
+
+			bIRQ_n <= ~aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
 		end
 
-		//----------------------------------------------------------------------------------------
-		//---- 6522 Do Timing & Interrupts Reguardless Of Chip Select State                	  ----
-		//----------------------------------------------------------------------------------------
-		if (0 == aVIA[VIA_REG_ACR][VIA_ACR_TIMER1_CTRL_LSB])
-		begin
-			// Timer 1 - One Shot Mode
-			if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
-			begin
-				// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
-				aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-				aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] | aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-			end
-		end
-		else
-		begin
-			// Timer 1 - Free Running Mode
-			if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
-			begin
-				// Transfer Timer 1 High Order Latch Into High Order Counter
-				aVIA[VIA_REG_T1CH] <= aVIA[VIA_REG_T1LH];
 
-				// Transfer Timer 1 Low Order Latch Into Low Order Counter
-				aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
+			// Clear IRQ On Falling Edge Of Phase 2 Clock
+			// if (!aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT])
+			// 	bIRQ_n <= 1;
 
-				// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
-				aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-				aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] | aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
-			end
+//			bIRQ_n <= ~aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT];
 		end
 	end
 end

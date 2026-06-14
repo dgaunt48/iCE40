@@ -8,7 +8,7 @@ set_io nData[6]             9
 set_io nData[7]             10
 
 set_io bPhase2Clock         20		# Vic20 1,108,404 Hz clock
-set_io bVicClock            21		# Vic20 4,433,616 Hz clock
+set_io bFPGACoreClock       21		# 25Mhz FPGA Clock
 
 set_io bReset_n             23      # Reset VIA Active Low
 set_io bCS                  24      # Chip Select Active Hi

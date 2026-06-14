@@ -4,10 +4,10 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
-// FPGA Usage 288 LC 3% @ 150 Mhz
+// FPGA Usage 286 LC 3% @ 150 Mhz
 
 module VIA_6522(
-	input wire bVicClock,
+	input wire bFPGACoreClock,
 	input wire bPhase2Clock,
 	input wire bReset_n,
 	input wire bCS,
@@ -51,40 +51,41 @@ assign nData = (bRead & bChipSelect) ? nBusOutput : 8'bz;
 genvar nBit;
 for (nBit=0; nBit<8; nBit = nBit + 1)
 begin
-	assign nPortA[nBit] = (aVIA[VIA_REG_DDRA][nBit] && !aVIA[VIA_REG_ORA][nBit]) ? 1'b0 : 1'bz;
-	assign nPortB[nBit] = (aVIA[VIA_REG_DDRB][nBit] && !aVIA[VIA_REG_ORB][nBit]) ? 1'b0 : 1'bz;
+	assign nPortA[nBit] = aVIA[VIA_REG_DDRA][nBit] ? aVIA[VIA_REG_ORA][nBit] : 1'bz;
+	assign nPortB[nBit] = aVIA[VIA_REG_DDRB][nBit] ? aVIA[VIA_REG_ORB][nBit] : 1'bz;
+//	assign nPortA[nBit] = (aVIA[VIA_REG_DDRA][nBit] && !aVIA[VIA_REG_ORA][nBit]) ? 1'b0 : 1'bz;
+//	assign nPortB[nBit] = (aVIA[VIA_REG_DDRB][nBit] && !aVIA[VIA_REG_ORB][nBit]) ? 1'b0 : 1'bz;
 end
 
 reg bCopyNextClock;
-reg [2:0] nPhase2WriteSync;
-reg [2:0] nPhase2Sync;
-
-wire bWriteEdge;
-assign bWriteEdge = (nPhase2WriteSync[1] ^ nPhase2WriteSync[0]);
+reg bWriteBusToggle = 1'b0;
 
 wire bAnyEdge;
+reg [2:0] nPhase2Sync;
 assign bAnyEdge = (nPhase2Sync[1] ^ nPhase2Sync[0]);
 
-reg [7:0] write_data_holding;
-reg [3:0] write_addr_holding;
-reg       write_toggle_bus = 1'b0;
+wire bWriteEdge;
+reg [2:0] nPhase2WriteSync;
+reg [7:0] nWriteBufferData;
+reg [3:0] nWriteBufferAddress;
+assign bWriteEdge = (nPhase2WriteSync[1] ^ nPhase2WriteSync[0]);
 
 always @ (negedge bPhase2Clock)
 begin
-	if (0 == bReset_n)				// Reset all VIA Registers to 0 except T1, T2 and SR
+	if (0 == bReset_n)
 	begin
-		write_data_holding <= 0;
-		write_addr_holding <= 0;
+		nWriteBufferData <= 0;
+		nWriteBufferAddress <= 0;
 	end
 	else if (bCS & ~bCS_n & ~bRead)
 	begin
-		write_data_holding <= nData;
-		write_addr_holding <= nRS[3:0];
-		write_toggle_bus   <= ~write_toggle_bus;         // Edge occurred!
+		nWriteBufferData <= nData;
+		nWriteBufferAddress <= nRS[3:0];
+		bWriteBusToggle <= ~bWriteBusToggle;
 	end
 end
 
-always @ (posedge bVicClock)		// Vic20 4,433,616 Hz clock
+always @ (posedge bFPGACoreClock)
 begin
 	if (0 == bReset_n)				// Reset all VIA Registers to 0 except T1, T2 and SR
 	begin
@@ -113,9 +114,10 @@ begin
 	end
 	else
 	begin
-		nPhase2WriteSync <= { nPhase2WriteSync[1:0], write_toggle_bus };
         nPhase2Sync <= { nPhase2Sync[1:0], bPhase2Clock };
+		nPhase2WriteSync <= { nPhase2WriteSync[1:0], bWriteBusToggle };
 
+		// Rising Edge Of Phase 2 Clock
 		if (bAnyEdge & bPhase2Clock)
 		begin
 			// Decrement Timer 1 Counter
@@ -188,6 +190,11 @@ begin
 					begin
 						nBusOutput <= aVIA[VIA_REG_IER];
 					end
+
+					VIA_REG_ORA_NOHS:	// RS 5
+					begin
+						nBusOutput <= nPortA;
+					end
 				endcase
 			end
 
@@ -236,103 +243,102 @@ begin
 				bIRQ_n <= 1;
 		end
 
+		//----------------------------------------------------------------------------------------
+		//---- 6522 Selected And At The Falling Clock Edge So Do Buffered Data Writes     	  ----
+		//----------------------------------------------------------------------------------------
 		if (bWriteEdge)
 		begin
-			//------------------------------------------------------------------------------------
-			//---- 6522 Selected And At The Falling Clock Edge So Do Data Writes      		  ----
-			//------------------------------------------------------------------------------------
-//			if (bCS & ~bCS_n & ~bRead)
-			begin
-				//--------------------------------------------------------------------------------
-				//---- 6522 Register Write Functions                                       	  ----
-				//--------------------------------------------------------------------------------
-				case (write_addr_holding)
-					VIA_REG_ORB:		// RS 0
-					begin
-						aVIA[VIA_REG_ORB] <= write_data_holding;
-					end
+			case (nWriteBufferAddress)
+				VIA_REG_ORB:		// RS 0
+				begin
+					aVIA[VIA_REG_ORB] <= nWriteBufferData;
+				end
 
-					VIA_REG_ORA:		// RS 1
-					begin
-						aVIA[VIA_REG_ORA] <= write_data_holding;
-					end
+				VIA_REG_ORA:		// RS 1
+				begin
+					aVIA[VIA_REG_ORA] <= nWriteBufferData;
+				end
 
-					VIA_REG_DDRB:		// RS 2
-					begin
-						aVIA[VIA_REG_DDRB] <= write_data_holding;
-					end
+				VIA_REG_DDRB:		// RS 2
+				begin
+					aVIA[VIA_REG_DDRB] <= nWriteBufferData;
+				end
 
-					VIA_REG_DDRA:		// RS 3
-					begin
-						aVIA[VIA_REG_DDRA] <= write_data_holding;
-					end
+				VIA_REG_DDRA:		// RS 3
+				begin
+					aVIA[VIA_REG_DDRA] <= nWriteBufferData;
+				end
 
-					VIA_REG_T1CL:		// RS 4
-					begin
-						// Any Writes To Timer 1 Counter Low Are Stored In Timer 1 Latch Low
-						aVIA[VIA_REG_T1LL] <= write_data_holding;
-					end
+				VIA_REG_T1CL:		// RS 4
+				begin
+					// Any Writes To Timer 1 Counter Low Are Stored In Timer 1 Latch Low
+					aVIA[VIA_REG_T1LL] <= nWriteBufferData;
+				end
 
-					VIA_REG_T1CH:		// RS 5
-					begin
-						// Write To Timer 1 High Order Counter
-						aVIA[VIA_REG_T1CH] <= write_data_holding;
+				VIA_REG_T1CH:		// RS 5
+				begin
+					// Write To Timer 1 High Order Counter
+					aVIA[VIA_REG_T1CH] <= nWriteBufferData;
 
-						// Transfer Timer 1 Low Order Latch Into Low Order Counter
-						aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
+					// Transfer Timer 1 Low Order Latch Into Low Order Counter
+					aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1LL];
 
-						// Write To Timer 1 High Order Latch
-						aVIA[VIA_REG_T1LH] <= write_data_holding;
+					// Write To Timer 1 High Order Latch
+					aVIA[VIA_REG_T1LH] <= nWriteBufferData;
 
-						// Reset Timer 1 Interrupt Flag
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+					// Reset Timer 1 Interrupt Flag
+					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
 
-						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
-						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
-					end
+					// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
+				end
 
-					VIA_REG_T1LL:		// RS 6
-					begin
-						// Write To Timer 1 Low Order Latch
-						aVIA[VIA_REG_T1LL] <= write_data_holding;
-					end
+				VIA_REG_T1LL:		// RS 6
+				begin
+					// Write To Timer 1 Low Order Latch
+					aVIA[VIA_REG_T1LL] <= nWriteBufferData;
+				end
 
-					VIA_REG_T1LH:		// RS 7
-					begin
-						// Write To Timer 1 High Order Latch
-						aVIA[VIA_REG_T1LH] <= write_data_holding;
+				VIA_REG_T1LH:		// RS 7
+				begin
+					// Write To Timer 1 High Order Latch
+					aVIA[VIA_REG_T1LH] <= nWriteBufferData;
 
-						// Reset Timer 1 Interrupt Flag
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
+					// Reset Timer 1 Interrupt Flag
+					aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b0;
 
-						// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
-						aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
-					end
+					// Update The IRQ Bit Skipping The T1 Bit (6) Which Is Now Clear.
+					aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][5:0];
+				end
 
-					VIA_REG_ACR:		// RS 11
-					begin
-						// Write Value To Auxillary Control Register
-						aVIA[VIA_REG_ACR] <= write_data_holding;
-					end
+				VIA_REG_ACR:		// RS 11
+				begin
+					// Write Value To Auxillary Control Register
+					aVIA[VIA_REG_ACR] <= nWriteBufferData;
+				end
 
-					VIA_REG_IFR:		// RS 13
-					begin
-						// Writing A 1 In The Low 7 Bits Of the Interrupt Flags Register Will Clear That Flag.
-						// Bit 7 Is The IRQ Flag, It Can Only Be Cleared By Clearing All Other Flags.
-						aVIA[VIA_REG_IFR][6:0] <= aVIA[VIA_REG_IFR][6:0] & ~write_data_holding[6:0];
-						aVIA[VIA_REG_IFR][7] <= |(aVIA[VIA_REG_IFR][6:0] & ~write_data_holding[6:0]);
-					end
+				VIA_REG_IFR:		// RS 13
+				begin
+					// Writing A 1 In The Low 7 Bits Of the Interrupt Flags Register Will Clear That Flag.
+					// Bit 7 Is The IRQ Flag, It Can Only Be Cleared By Clearing All Other Flags.
+					aVIA[VIA_REG_IFR][6:0] <= aVIA[VIA_REG_IFR][6:0] & ~nWriteBufferData[6:0];
+					aVIA[VIA_REG_IFR][7] <= |(aVIA[VIA_REG_IFR][6:0] & ~nWriteBufferData[6:0]);
+				end
 
-					VIA_REG_IER:		// RS 14
-					begin
-						// Set / Clear Flags In Interrupt Enable Register
-						if (write_data_holding[7])
-							aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] | write_data_holding[6:0];
-						else
-							aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] & ~write_data_holding[6:0];
-					end
-				endcase
-			end
+				VIA_REG_IER:		// RS 14
+				begin
+					// Set / Clear Flags In Interrupt Enable Register
+					if (nWriteBufferData[7])
+						aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] | nWriteBufferData[6:0];
+					else
+						aVIA[VIA_REG_IER][6:0] <= aVIA[VIA_REG_IER][6:0] & ~nWriteBufferData[6:0];
+				end
+
+				VIA_REG_ORA_NOHS:	// RS 5
+				begin
+					aVIA[VIA_REG_ORA] <= nWriteBufferData;
+				end
+			endcase
 		end
 	end
 end

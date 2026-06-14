@@ -16,10 +16,10 @@ module VIA_6522_TB();
 
 parameter DURATION = 3000;
 
-reg bVicClock = 0;
-always #2 bVicClock = ~bVicClock;
+reg bFPGACoreClock = 0;					// 25 Mhz FPGA Core Clock
+always #2 bFPGACoreClock = ~bFPGACoreClock;
 
-reg bPhase2Clock = 0;
+reg bPhase2Clock = 0;					// Vic20 1,108,404 Hz Clock
 always #50 bPhase2Clock = ~bPhase2Clock;
 
 reg bReset_n = 0;
@@ -35,7 +35,7 @@ wire bIRQ_n;
 assign nData = bRead ? 8'bz : nWriteData;
 
 VIA_6522 UUT (
-	.bVicClock(bVicClock),
+	.bFPGACoreClock(bFPGACoreClock),
 	.bPhase2Clock(bPhase2Clock),
 	.bReset_n(bReset_n),
 	.bCS(bCS),
@@ -49,7 +49,7 @@ VIA_6522 UUT (
 initial begin
 	$dumpvars(0, VIA_6522_TB);
 
-	#50 bReset_n = 1;				// Release VIA From Reset
+	#50 bReset_n = 1;					// Release VIA From Reset
 	#51
 
 	#45 bCS = 1;
@@ -104,8 +104,7 @@ initial begin
 	bCS_n = 1;
 	bRead = 1;
 
-	#600							// Count Down 7
-	#100
+	#700								// Count Down 7
 
 	#45 bCS = 1;						// Read Interrupt Flags Register
 	bCS_n = 0;

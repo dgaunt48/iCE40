@@ -4,7 +4,7 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
-// FPGA Usage 328 LC 4% @ 137 Mhz
+// FPGA Usage 315 LC 4% @ 139 Mhz
 
 module VIA_6522(
 	input wire bFPGACoreClock,
@@ -24,7 +24,46 @@ module VIA_6522(
 
 `include "VIARegisters.vh"
 
+wire [7:0] nPortIRA;
+wire [7:0] nPortIRB;
+
+SB_IO #(
+	.PIN_TYPE(6'b1010_01), 
+	.PULLUP(1'b1)           
+) io_port_a [7:0] (
+	.PACKAGE_PIN(nPortA),
+	.OUTPUT_ENABLE(aVIA[VIA_REG_DDRA]),
+	.D_OUT_0(aVIA[VIA_REG_ORA]),
+	.D_IN_0(nPortIRA),
+	.LATCH_INPUT_VALUE(8'h00),		// Silence the linter
+	.CLOCK_ENABLE(8'h00),
+	.INPUT_CLK(8'h00),
+	.OUTPUT_CLK(8'h00),
+	.D_OUT_1(8'h00),
+	.D_IN_1()
+);
+
+SB_IO #(
+	.PIN_TYPE(6'b1010_01), 
+	.PULLUP(1'b1)           
+) io_port_b [7:0] (
+	.PACKAGE_PIN(nPortB),
+	.OUTPUT_ENABLE(aVIA[VIA_REG_DDRB]),
+	.D_OUT_0(aVIA[VIA_REG_ORB]),
+	.D_IN_0(nPortIRB),
+	.LATCH_INPUT_VALUE(8'h00),		// Silence the linter
+	.CLOCK_ENABLE(8'h00),
+	.INPUT_CLK(8'h00),
+	.OUTPUT_CLK(8'h00),
+	.D_OUT_1(8'h00),
+	.D_IN_1()
+);
+
 `ifndef SYNTHESIS
+	wire [7:0] sim_ORB;		// 0	Output Register B
+	wire [7:0] sim_ORA;		// 1	Output Register B
+	wire [7:0] sim_DDRB;	// 2	Data Direction Register B
+	wire [7:0] sim_DDRA;	// 3	Data Direction Register A
 	wire [7:0] sim_T1CL;	// 4	Timer 1 Count Low
 	wire [7:0] sim_T1CH;	// 5	Timer 1 Count High
 	wire [7:0] sim_T1LL;	// 6	Timer 1 Latch Low
@@ -33,6 +72,10 @@ module VIA_6522(
 	wire [7:0] sim_IFR;		// 13	Interrupt Flag Register
 	wire [7:0] sim_IER;		// 14	Interrupt Enable Register
 
+	assign sim_ORB = aVIA[VIA_REG_ORB];
+	assign sim_ORA = aVIA[VIA_REG_ORA];
+	assign sim_DDRB = aVIA[VIA_REG_DDRB];
+	assign sim_DDRA = aVIA[VIA_REG_DDRA];
 	assign sim_T1CL = aVIA[VIA_REG_T1CL];
 	assign sim_T1CH = aVIA[VIA_REG_T1CH];
 	assign sim_T1LL = aVIA[VIA_REG_T1LL];
@@ -41,15 +84,6 @@ module VIA_6522(
 	assign sim_IER = aVIA[VIA_REG_IER];
 	assign sim_IFR = aVIA[VIA_REG_IFR];
 `endif
-
-genvar nBit;
-for (nBit=0; nBit<8; nBit = nBit + 1)
-begin
-//	assign nPortA[nBit] = aVIA[VIA_REG_DDRA][nBit] ? aVIA[VIA_REG_ORA][nBit] : 1'bz;
-//	assign nPortB[nBit] = aVIA[VIA_REG_DDRB][nBit] ? aVIA[VIA_REG_ORB][nBit] : 1'bz;
-	assign nPortA[nBit] = (aVIA[VIA_REG_DDRA][nBit] && !aVIA[VIA_REG_ORA][nBit]) ? 1'b0 : 1'bz;
-	assign nPortB[nBit] = (aVIA[VIA_REG_DDRB][nBit] && !aVIA[VIA_REG_ORB][nBit]) ? 1'b0 : 1'bz;
-end
 
 reg bCopyNextClock;
 reg [2:0] nReadDelay;
@@ -61,27 +95,25 @@ reg [2:0] nPhase2WriteSync;
 reg [7:0] nWriteBufferData;
 reg [3:0] nWriteBufferAddress;
 
-assign nData = (bDriveBus & bCS & ~bCS_n) ? nBusOutput : 8'bz;
+assign nData = (bPhase2Clock & bRead & bCS & ~bCS_n) ? nBusOutput : 8'bz;
 
 wire bAnyEdge;
 assign bAnyEdge = (nPhase2Sync[1] ^ nPhase2Sync[0]);
 
-wire bWriteEdge;
-assign bWriteEdge = (nPhase2WriteSync[1] ^ nPhase2WriteSync[0]);
+reg bWriteEdge;
+//assign bWriteEdge = (nPhase2WriteSync[1] ^ nPhase2WriteSync[0]);
 
 always @ (negedge bPhase2Clock)
 begin
 	if (0 == bReset_n)
 	begin
-		nWriteBufferData <= 0;
-		nWriteBufferAddress <= 0;
+//		nWriteBufferData <= 0;
+//		nWriteBufferAddress <= 0;
 	end
 	else 
 	begin
 		if (bCS & ~bCS_n & ~bRead)
 		begin
-			nWriteBufferData <= nData;
-			nWriteBufferAddress <= nRS[3:0];
 			bWriteBusToggle <= ~bWriteBusToggle;
 		end
 	end
@@ -97,6 +129,9 @@ begin
 		bCopyNextClock <= 1'b0;
 		bDriveBus <= 1'b0;
 		nReadDelay <= 3'b0;
+		nWriteBufferData <= 0;
+		nWriteBufferAddress <= 0;
+		bWriteEdge <= 0;
 
 `ifndef SYNTHESIS
 		// aVIA[VIA_REG_T1CL] <= 8'h00;
@@ -176,7 +211,7 @@ begin
 				if (!aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT])
 					bIRQ_n <= 1;
 
-				nReadDelay <= 2;
+				nReadDelay <= 7;
 			end
 			else
 			begin
@@ -187,8 +222,10 @@ begin
 		if (nReadDelay > 0)
 			nReadDelay <= nReadDelay - 1;
 
-		if ((nReadDelay == 1) && bCS && !bCS_n && bRead)
+		if (bCS && !bCS_n)
 		begin
+			if ((nReadDelay == 6) && bRead)
+			begin
 			//------------------------------------------------------------------------------------
 			//---- 6522 Selected And At The Rising Clock Edge So Put Data On The Bus		  ----
 			//------------------------------------------------------------------------------------
@@ -197,12 +234,12 @@ begin
 			case (nRS)
 				VIA_REG_ORB:		// RS 0
 				begin
-					nBusOutput <= nPortB;
+					nBusOutput <= nPortIRB;
 				end
 
 				VIA_REG_ORA:		// RS 1
 				begin
-					nBusOutput <= nPortA;
+					nBusOutput <= nPortIRA;
 				end
 
 				VIA_REG_DDRB:		// RS 2
@@ -263,9 +300,16 @@ begin
 
 				VIA_REG_ORA_NOHS:	// RS 15
 				begin
-					nBusOutput <= nPortA;
+					nBusOutput <= nPortIRA;
 				end
 			endcase
+			end
+			else if ((nReadDelay == 1) && !bRead)
+			begin
+				nWriteBufferData <= nData;
+				nWriteBufferAddress <= nRS[3:0];
+				bWriteEdge <= 1;
+			end
 		end
 
 		//----------------------------------------------------------------------------------------
@@ -273,6 +317,7 @@ begin
 		//----------------------------------------------------------------------------------------
 		if (bWriteEdge)
 		begin
+			bWriteEdge <= 0;
 			case (nWriteBufferAddress)
 				VIA_REG_ORB:		// RS 0
 				begin

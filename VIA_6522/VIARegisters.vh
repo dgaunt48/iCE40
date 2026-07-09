@@ -46,12 +46,14 @@ parameter VIA_ACR_TIMER2_CTRL_BIT		= 5;		// Timer 2 Control
 parameter VIA_ACR_TIMER1_CTRL_MSB		= 7;		// Timer 1 Control
 parameter VIA_ACR_TIMER1_CTRL_LSB		= 6;
 parameter VIA_REG_PCR			= 12;				// Peripheral Control Register
-parameter VIA_PCR_CA1_CONTROL_BIT		= 0;		// CA1 Interrupt Control Pin
-parameter VIA_PCR_CA2_CONTROL_MSB		= 3;		// CA2 
-parameter VIA_PCR_CA2_CONTROL_LSB		= 1;
-parameter VIA_PCR_CB1_CONTROL_BIT		= 4;		// CB1 Interrupt Control Pin
-parameter VIA_PCR_CB2_CONTROL_MSB		= 7;		// CB2 
-parameter VIA_PCR_CB2_CONTROL_LSB		= 5;
+parameter VIA_PCR_CA1_TRANSITION_BIT	= 0;		// CA1 Transition Direction 0 = IRQ On Falling Edge / 1 = Rising Edge
+parameter VIA_PCR_CA2_OUT_STATE_BIT     = 1;        // CA2 If Manual Output Mode = 2'b11 Then This Controls The Pin Direction
+parameter VIA_PCR_CA2_OUT_MANUAL_BIT    = 2;        // CA2 If Output Mode 1 = Manual Control Of High Low
+parameter VIA_PCR_CA2_DIRECTION_BIT     = 3;        // CA2 Direction 0 = Input / 1 = Output
+parameter VIA_PCR_CB1_TRANSITION_BIT	= 4;		// CB1 Transition Direction 0 = IRQ On Falling Edge / 1 = Rising Edge
+parameter VIA_PCR_CB2_OUT_STATE_BIT     = 5;        // CB2 If Manual Output Mode = 2'b11 Then This Controls The Pin Direction
+parameter VIA_PCR_CB2_OUT_MANUAL_BIT    = 6;        // CB2 If Output Mode 1 = Manual Control Of High Low
+parameter VIA_PCR_CB2_DIRECTION_BIT     = 7;        // CB2 Direction 0 = Input / 1 = Output
 parameter VIA_REG_IFR			= 13;				// Interrupt Flag Register
 parameter VIA_IFR_CA2_BIT				= 0;
 parameter VIA_IFR_CA1_BIT				= 1;

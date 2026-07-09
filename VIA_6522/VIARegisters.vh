@@ -4,16 +4,16 @@
 //---- v1.0 - 									                                              ----
 //------------------------------------------------------------------------------------------------
 
-parameter VIA_REG_ORB			= 0;			// Output Register A
+parameter VIA_REG_ORB			= 0;			// Output Register B
 parameter VIA_OUTPUT_REG_B_MSB			= 7;
 parameter VIA_OUTPUT_REG_B_LSB			= 0;
-parameter VIA_REG_ORA			= 1;
+parameter VIA_REG_ORA			= 1;            // Output Register A
 parameter VIA_OUTPUT_REG_A_MSB			= 7;
 parameter VIA_OUTPUT_REG_A_LSB			= 0;
-parameter VIA_REG_DDRB			= 2;
+parameter VIA_REG_DDRB			= 2;            // Data Direction Register B
 parameter VIA_DATA_DIRECTION_B_MSB		= 7;
 parameter VIA_DATA_DIRECTION_B_LSB		= 0;
-parameter VIA_REG_DDRA			= 3;
+parameter VIA_REG_DDRA			= 3;            // Data Direction Register A
 parameter VIA_DATA_DIRECTION_A_MSB		= 7;
 parameter VIA_DATA_DIRECTION_A_LSB		= 0;
 parameter VIA_REG_T1CL			= 4;

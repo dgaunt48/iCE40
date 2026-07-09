@@ -9,6 +9,7 @@
 `timescale 10ns / 1ns
 
 `define TEST_TIMER_1
+//`define TEST_PORTS
 
 `include "VIARegisters.vh"
 
@@ -30,9 +31,22 @@ reg [3:0] nRS = 0;
 
 reg [7:0] nWriteData = 0;
 wire [7:0] nData;
+wire [7:0] nPortA;
+wire [7:0] nPortB;
 wire bIRQ_n;
 
+genvar i;
+generate
+    for (i = 0; i < 8; i = i + 1)
+	begin // : pullup_bus
+        pullup (nPortA[i]);
+        pullup (nPortB[i]);
+    end
+endgenerate
+
 assign nData = bRead ? 8'bz : nWriteData;
+
+assign nPortA[0] = nPortB[0];
 
 VIA_6522 UUT (
 	.bFPGACoreClock(bFPGACoreClock),
@@ -42,7 +56,11 @@ VIA_6522 UUT (
 	.bCS_n(bCS_n),
 	.bRead(bRead),
 	.nRS(nRS[3:0]),
+
 	.nData(nData[7:0]),
+	.nPortA(nPortA[7:0]),
+	.nPortB(nPortB[7:0]),
+
 	.bIRQ_n(bIRQ_n)
 );
 
@@ -76,6 +94,51 @@ initial begin
 	#55 bCS = 0;
 	bCS_n = 1;
 
+//------------------------------------------------------------------------------------------------
+//---- 																                          ----
+//------------------------------------------------------------------------------------------------
+`ifdef TEST_PORTS
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_DDRB;
+	nWriteData = 8'hFF;					// Direction B All Output
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_DDRA;
+	nWriteData = 8'h01;					// Direction A All Input
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_ORB;
+	nWriteData = 8'hF7;					// Output Port B 0xf7
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_ORB;
+	nWriteData = 8'hF6;					// Output Port B 0xf6
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+`endif // TEST_PORTS
+
+//------------------------------------------------------------------------------------------------
+//---- 																                          ----
+//------------------------------------------------------------------------------------------------
 `ifdef TEST_TIMER_1
 	#45 bCS = 1;						// Write 0x40 To ACR Putting Timer 1 Into Free Running Mode
 	bCS_n = 0;

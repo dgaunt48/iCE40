@@ -4,7 +4,7 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
-// FPGA Usage 315 LC 4% @ 139 Mhz
+// FPGA Usage 304 LC 3% @ 139 Mhz
 
 module VIA_6522(
 	input wire bFPGACoreClock,
@@ -87,18 +87,13 @@ SB_IO #(
 
 reg bCopyNextClock;
 reg [3:0] nReadDelay;
-//reg bDriveBus = 1'b0;
 reg [7:0] nBusOutput;
 reg [2:0] nPhase2Sync;
-//reg [7:0] nWriteBufferData;
-//reg [3:0] nWriteBufferAddress;
 
 assign nData = (bPhase2Clock & bRead & bCS & ~bCS_n) ? nBusOutput : 8'bz;
 
 wire bAnyEdge;
 assign bAnyEdge = (nPhase2Sync[1] ^ nPhase2Sync[0]);
-
-//reg bWriteEdge;
 
 always @ (posedge bFPGACoreClock)
 begin
@@ -107,11 +102,7 @@ begin
 		nPhase2Sync <= 3'b0;
 		nBusOutput <= 8'h00;
 		bCopyNextClock <= 1'b0;
-//		bDriveBus <= 1'b0;
 		nReadDelay <= 4'b0;
-//		nWriteBufferData <= 0;
-//		nWriteBufferAddress <= 0;
-//		bWriteEdge <= 0;
 
 `ifndef SYNTHESIS
 		// aVIA[VIA_REG_T1CL] <= 8'h00;
@@ -192,10 +183,6 @@ begin
 
 				nReadDelay <= 9;
 			end
-			else
-			begin
-			// 	bDriveBus <= 1'b0;
-			end
 		end
 
 		if (nReadDelay > 0)
@@ -208,8 +195,6 @@ begin
 			//------------------------------------------------------------------------------------
 			//---- 6522 Selected And At The Rising Clock Edge So Put Data On The Bus		  ----
 			//------------------------------------------------------------------------------------
-//			bDriveBus <= 1'b1;
-
 			case (nRS)
 				VIA_REG_ORB:		// RS 0
 				begin
@@ -218,7 +203,8 @@ begin
 
 				VIA_REG_ORA:		// RS 1
 				begin
-					nBusOutput <= ((nPortIRA & ~aVIA[VIA_REG_DDRA]) | (aVIA[VIA_REG_ORA] & aVIA[VIA_REG_DDRA]));
+					nBusOutput <= nPortIRA;
+//					nBusOutput <= ((nPortIRA & ~aVIA[VIA_REG_DDRA]) | (aVIA[VIA_REG_ORA] & aVIA[VIA_REG_DDRA]));
 				end
 
 				VIA_REG_DDRB:		// RS 2
@@ -279,23 +265,16 @@ begin
 
 				VIA_REG_ORA_NOHS:	// RS 15
 				begin
-//					nBusOutput <= nPortIRA;
-					nBusOutput <= ((nPortIRA & ~aVIA[VIA_REG_DDRA]) | (aVIA[VIA_REG_ORA] & aVIA[VIA_REG_DDRA]));
+					nBusOutput <= nPortIRA;
+//					nBusOutput <= ((nPortIRA & ~aVIA[VIA_REG_DDRA]) | (aVIA[VIA_REG_ORA] & aVIA[VIA_REG_DDRA]));
 				end
 			endcase
 			end
 			else if ((nReadDelay == 1) && !bRead)
 			begin
-//				nWriteBufferData <= nData;
-//				nWriteBufferAddress <= nRS[3:0];
-//				bWriteEdge <= 1;
-
-		//----------------------------------------------------------------------------------------
-		//---- 6522 Selected And At The Falling Clock Edge So Do Buffered Data Writes     	  ----
-		//----------------------------------------------------------------------------------------
-		// if (bWriteEdge)
-		// begin
-		// 	bWriteEdge <= 0;
+			//----------------------------------------------------------------------------------------
+			//---- 6522 Selected And At The Falling Clock Edge So Do Buffered Data Writes     	  ----
+			//----------------------------------------------------------------------------------------
 			case (nRS[3:0])
 				VIA_REG_ORB:		// RS 0
 				begin
@@ -393,10 +372,7 @@ begin
 					aVIA[VIA_REG_ORA] <= nData;
 				end
 			endcase
-		end
-
-
-//			end
+			end
 		end
 	end
 end

@@ -9,7 +9,8 @@
 `timescale 10ns / 1ns
 
 `define TEST_TIMER_1
-//`define TEST_PORTS
+`define TEST_PORTS
+`define TEST_CAB
 
 `include "VIARegisters.vh"
 
@@ -28,12 +29,17 @@ reg bCS = 0;
 reg bCS_n = 1;
 reg bRead = 1;
 reg [3:0] nRS = 0;
+reg bCA1 = 1;
+reg bCB1 = 1;
 
-reg [7:0] nWriteData = 0;
+wire bCA2;
+wire bCB2;
 wire [7:0] nData;
 wire [7:0] nPortA;
 wire [7:0] nPortB;
 wire bIRQ_n;
+
+reg [7:0] nWriteData = 0;
 
 genvar i;
 generate
@@ -46,8 +52,6 @@ endgenerate
 
 assign nData = bRead ? 8'bz : nWriteData;
 
-assign nPortA[0] = nPortB[0];
-
 VIA_6522 UUT (
 	.bFPGACoreClock(bFPGACoreClock),
 	.bPhase2Clock(bPhase2Clock),
@@ -56,7 +60,11 @@ VIA_6522 UUT (
 	.bCS_n(bCS_n),
 	.bRead(bRead),
 	.nRS(nRS[3:0]),
+	.bCA1(bCA1),
+	.bCB1(bCB1),
 
+	.bCA2(bCA2),
+	.bCB2(bCB2),
 	.nData(nData[7:0]),
 	.nPortA(nPortA[7:0]),
 	.nPortB(nPortB[7:0]),
@@ -93,6 +101,97 @@ initial begin
 	nRS = VIA_REG_IER;
 	#55 bCS = 0;
 	bCS_n = 1;
+
+//------------------------------------------------------------------------------------------------
+//---- 																                          ----
+//------------------------------------------------------------------------------------------------
+`ifdef TEST_CAB
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_PCR;
+	nWriteData = 8'hC0;					// Pull CB2 Low
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_PCR;
+	nWriteData = 8'hEC;					// Float CB2 High / Pull CA2 Low
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_PCR;
+	nWriteData = 8'hEC;					// Float CB2 High / Pull CA2 Low
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_IER;
+	nWriteData = 8'h82;					// Enable IRQ On CA1 Transition
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	bCA1 = 0;							// Trigger CA1 IRQ
+	#100
+
+	#45 bCS = 1;						// Read ORA To Clear IRQ
+	bCS_n = 0;
+	nRS = VIA_REG_ORA;
+	#55 bCS = 0;
+	bCS_n = 1;
+
+	#100
+	bCB1 = 0;
+	bCA1 = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_IER;
+	nWriteData = 8'h02;					// Disable IRQ On CA1 Transition
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_IER;
+	nWriteData = 8'h90;					// Enable IRQ On CB1 Transition
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	#45 bCS = 1;
+	bCS_n = 0;
+	nRS = VIA_REG_PCR;
+	nWriteData = 8'hFC;					// Set CB1 Transition From Low To High
+	bRead = 0;
+	#55 bCS = 0;
+	bCS_n = 1;
+	bRead = 1;
+
+	bCB1 = 1;							// Trigger CA2 IRQ
+	#100
+
+	#45 bCS = 1;						// Read ORB To Clear IRQ
+	bCS_n = 0;
+	nRS = VIA_REG_ORB;
+	#55 bCS = 0;
+	bCS_n = 1;
+
+`endif // TEST_CAB
 
 //------------------------------------------------------------------------------------------------
 //---- 																                          ----

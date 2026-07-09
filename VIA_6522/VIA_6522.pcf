@@ -7,6 +7,11 @@ set_io nData[5]             8
 set_io nData[6]             9
 set_io nData[7]             10
 
+set_io bCA1                 15
+set_io bCA2                 16
+set_io bCB1                 17
+set_io bCB2                 18
+
 set_io bPhase2Clock         20		# Vic20 1,108,404 Hz clock
 set_io bFPGACoreClock       21		# 25Mhz FPGA Clock
 

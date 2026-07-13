@@ -4,7 +4,7 @@
 //---- v1.0 - MOS 6522 Versatile Interface Adapter                                            ----
 //------------------------------------------------------------------------------------------------
 
-// FPGA Usage 320 LC 4% @ 146 Mhz
+// FPGA Usage 327 LC 4% @ 158 Mhz
 
 module VIA_6522(
 	input wire bFPGACoreClock,
@@ -73,6 +73,7 @@ SB_IO #(
 	wire [7:0] sim_T1LL;	// 6	Timer 1 Latch Low
 	wire [7:0] sim_T1LH;	// 7	Timer 1 Latch High
 	wire [7:0] sim_ACR;		// 11	Auxillary Control Register
+	wire [7:0] sim_PCR;		// 12	Peripheral Control Register
 	wire [7:0] sim_IFR;		// 13	Interrupt Flag Register
 	wire [7:0] sim_IER;		// 14	Interrupt Enable Register
 
@@ -84,6 +85,7 @@ SB_IO #(
 	assign sim_T1CH = aVIA[VIA_REG_T1CH];
 	assign sim_T1LL = aVIA[VIA_REG_T1LL];
 	assign sim_T1LH = aVIA[VIA_REG_T1LH];
+	assign sim_PCR = aVIA[VIA_REG_PCR];
 	assign sim_ACR = aVIA[VIA_REG_ACR];
 	assign sim_IER = aVIA[VIA_REG_IER];
 	assign sim_IFR = aVIA[VIA_REG_IFR];
@@ -145,43 +147,36 @@ begin
 		nCA1Sync <= { nCA1Sync[1:0], bCA1 };
 		nCB1Sync <= { nCB1Sync[1:0], bCB1 };
 
-		if (bCA1Edge && aVIA[VIA_REG_IER][VIA_IER_CA1_BIT])
+		if (bCA1Edge)
 		begin
-			if (bCA1)	// Rising Edge
-			begin
-				if(aVIA[VIA_REG_PCR][VIA_PCR_CA1_TRANSITION_BIT])
-					aVIA[VIA_REG_IFR][VIA_IFR_CA1_BIT] <= 1'b1;
-			end
-			else		// Falling Edge
-			begin
-				if(!aVIA[VIA_REG_PCR][VIA_PCR_CA1_TRANSITION_BIT])
-					aVIA[VIA_REG_IFR][VIA_IFR_CA1_BIT] <= 1'b1;
-			end
+			// CA1 Rising Edge
+			if (~bCA1 & ~aVIA[VIA_REG_PCR][VIA_PCR_CA1_TRANSITION_BIT])
+				aVIA[VIA_REG_IFR][VIA_IFR_CA1_BIT] <= 1'b1;
+
+			// CA1 Falling Edge
+			if (bCA1 & aVIA[VIA_REG_PCR][VIA_PCR_CA1_TRANSITION_BIT])
+				aVIA[VIA_REG_IFR][VIA_IFR_CA1_BIT] <= 1'b1;
 		end
 
-		if (bCB1Edge && aVIA[VIA_REG_IER][VIA_IER_CB1_BIT])
+		if (bCB1Edge)
 		begin
-			if (bCB1)	// Rising Edge
-			begin
-				if(aVIA[VIA_REG_PCR][VIA_PCR_CB1_TRANSITION_BIT])
-					aVIA[VIA_REG_IFR][VIA_IFR_CB1_BIT] <= 1'b1;
-			end
-			else		// Falling Edge
-			begin
-				if(!aVIA[VIA_REG_PCR][VIA_PCR_CB1_TRANSITION_BIT])
-					aVIA[VIA_REG_IFR][VIA_IFR_CB1_BIT] <= 1'b1;
-			end
+			// CB1 Rising Edge
+			if (~bCB1 & ~aVIA[VIA_REG_PCR][VIA_PCR_CB1_TRANSITION_BIT])
+				aVIA[VIA_REG_IFR][VIA_IFR_CB1_BIT] <= 1'b1;
+
+			// CB1 Falling Edge
+			if (bCB1 & aVIA[VIA_REG_PCR][VIA_PCR_CB1_TRANSITION_BIT])
+				aVIA[VIA_REG_IFR][VIA_IFR_CB1_BIT] <= 1'b1;
 		end
 
 		if (bPhase2Edge)
 		begin
-			if (bPhase2Clock)	// Rising Edge Of Phase 2 Clock
+			// Rising Edge Of Phase 2 Clock
+			if (bPhase2Clock)	
 			begin
 				//------------------------------------------------------------------------------------
 				//---- 6522 Do Timing & Interrupts Reguardless Of Chip Select State               ----
 				//------------------------------------------------------------------------------------
-				aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= |aVIA[VIA_REG_IFR][6:0];
-
 				// Decrement Timer 1 Counter
 				aVIA[VIA_REG_T1CL] <= aVIA[VIA_REG_T1CL] - 1;
 
@@ -194,7 +189,7 @@ begin
 					if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
 					begin
 						// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b1;
 					end
 				end
 				else
@@ -203,7 +198,7 @@ begin
 					if ((0 == aVIA[VIA_REG_T1CH]) && (0 == aVIA[VIA_REG_T1CL]))
 					begin
 						// If The Timer 1 Interrupt Enable Bit Is Set - Set The Timer 1 Interrupt Flag Bit and IRQ bit.
-						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= aVIA[VIA_REG_IER][VIA_IER_T1_BIT];
+						aVIA[VIA_REG_IFR][VIA_IFR_T1_BIT] <= 1'b1;
 						bCopyNextClock <= 1;
 					end
 				end
@@ -220,6 +215,16 @@ begin
 				end
 
 				nReadDelay <= 8;
+			end
+			else
+			begin
+			aVIA[VIA_REG_IFR][VIA_IFR_IRQ_BIT] <= ( (aVIA[VIA_REG_IFR][0] & aVIA[VIA_REG_IER][0]) |
+													(aVIA[VIA_REG_IFR][1] & aVIA[VIA_REG_IER][1]) | 
+													(aVIA[VIA_REG_IFR][2] & aVIA[VIA_REG_IER][2]) | 
+													(aVIA[VIA_REG_IFR][3] & aVIA[VIA_REG_IER][3]) | 
+													(aVIA[VIA_REG_IFR][4] & aVIA[VIA_REG_IER][4]) | 
+													(aVIA[VIA_REG_IFR][5] & aVIA[VIA_REG_IER][5]) | 
+													(aVIA[VIA_REG_IFR][6] & aVIA[VIA_REG_IER][6]) );
 			end
 		end
 
@@ -300,7 +305,6 @@ begin
 				VIA_REG_ORA_NOHS:	// RS 15
 				begin
 					nBusOutput <= nPortIRA;
-//					nBusOutput <= ((nPortIRA & ~aVIA[VIA_REG_DDRA]) | (aVIA[VIA_REG_ORA] & aVIA[VIA_REG_DDRA]));
 				end
 			endcase
 			end

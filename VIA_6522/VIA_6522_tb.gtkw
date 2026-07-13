@@ -1,29 +1,30 @@
 [*]
 [*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Thu Jul 09 13:15:27 2026
+[*] Sun Jul 12 03:24:36 2026
 [*]
 [dumpfile] "E:\APIO\iCE40\VIA_6522\_build\default\VIA_6522_tb.vcd"
-[dumpfile_mtime] "Thu Jul 09 13:13:52 2026"
-[dumpfile_size] 72983
+[dumpfile_mtime] "Sun Jul 12 03:21:20 2026"
+[dumpfile_size] 84964
 [savefile] "E:\APIO\iCE40\VIA_6522\VIA_6522_tb.gtkw"
 [timestart] 0
 [size] 1447 783
 [pos] -1 -1
-*-23.394611 7330000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-21.904896 8160000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] VIA_6522_TB.
 [sst_width] 246
 [signals_width] 266
 [sst_expanded] 1
 [sst_vpaned_height] 221
 @28
 VIA_6522_TB.bReset_n
-@29
 VIA_6522_TB.bPhase2Clock
-@28
 VIA_6522_TB.bCS_n
 VIA_6522_TB.bCA1
-VIA_6522_TB.bCA2
+VIA_6522_TB.UUT.bCA1Edge
 VIA_6522_TB.bCB1
-VIA_6522_TB.bCB2
+VIA_6522_TB.UUT.bCB1Edge
+@23
+VIA_6522_TB.UUT.sim_IFR[7:0]
 @22
 VIA_6522_TB.UUT.sim_ORB[7:0]
 VIA_6522_TB.UUT.sim_ORA[7:0]
@@ -36,7 +37,7 @@ VIA_6522_TB.UUT.sim_T1CH[7:0]
 VIA_6522_TB.UUT.sim_T1LL[7:0]
 VIA_6522_TB.UUT.sim_T1LH[7:0]
 VIA_6522_TB.UUT.sim_ACR[7:0]
-VIA_6522_TB.UUT.sim_IFR[7:0]
+VIA_6522_TB.UUT.sim_PCR[7:0]
 VIA_6522_TB.UUT.sim_IER[7:0]
 VIA_6522_TB.UUT.nRS[3:0]
 VIA_6522_TB.UUT.nData[7:0]

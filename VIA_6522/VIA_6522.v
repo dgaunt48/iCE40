@@ -26,7 +26,7 @@ module VIA_6522(
 	output wire bIRQ_n
 );
 
-`include "VIARegisters.vh"
+`include "/APIO/iCE40/VIA_6522/VIARegisters.vh"
 
 wire [7:0] nPortIRA;
 wire [7:0] nPortIRB;

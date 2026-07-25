@@ -38150,7 +38150,7 @@
 				)
 			)
 		)
-		(property "Value" "12pf"
+		(property "Value" "10pf"
 			(at 66.04 172.72 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -49598,7 +49598,7 @@
 				)
 			)
 		)
-		(property "Value" "12pf"
+		(property "Value" "10pf"
 			(at 66.04 160.02 90)
 			(show_name no)
 			(do_not_autoplace no)

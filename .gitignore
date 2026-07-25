@@ -1,4 +1,6 @@
+build
 _build
 .history
 *-backups
+output
 iCE40_BitStream.h

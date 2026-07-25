@@ -12,16 +12,20 @@ module LEDS_TB();
 
 parameter DURATION = 10;
 
-reg clk = 0;
-always #0.5 clk = ~clk;
+reg b25MHzClock = 0;
+always #0.5 b25MHzClock = ~b25MHzClock;
 
 //-- Leds port
 wire [1:0] aLEDs;
 reg  [1:0] aButtons;
+reg bDividedClock;
 
 LEDS UUT (
-	.aLEDs(aLEDs),
-	.aButtons(aButtons)
+	.b25MHzClock(b25MHzClock),
+	.aButtons(aButtons),
+
+	.bDividedClock(bDividedClock),
+	.aLEDs(aLEDs)
 );
 
 initial begin

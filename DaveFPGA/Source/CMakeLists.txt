@@ -15,9 +15,9 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.3.0)
-set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.3.0)
+set(sdkVersion 2.3.1)
+set(toolchainVersion 15_2_Rel1)
+set(picotoolVersion 2.3.1)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
@@ -68,6 +68,7 @@ target_include_directories(DaveFPGA PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(DaveFPGA 
+        hardware_spi
         hardware_dma
         hardware_pio
         )

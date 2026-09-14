@@ -1,0 +1,11 @@
+{
+  "DaveiCE1k":
+  {
+    "description": "Dave's iCE1k FPGA",
+    "fpga-id": "ice40hx1k-vq100",
+    "programmer":
+    {
+      "id": "dave-iceprog"
+    }
+  }
+}

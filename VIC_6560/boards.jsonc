@@ -1,7 +1,7 @@
 {
-  "DaveFPGA":
+  "DaveiCE4k":
   {
-    "description": "Dave's Custom FPGA",
+    "description": "Dave's iCE4k FPGA",
     "fpga-id": "ice40hx4k-tq144-8k",
     "programmer":
     {

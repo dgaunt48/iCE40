@@ -1,0 +1,8 @@
+
+set_io vga_clk      62      # 25 MHz Clock
+
+set_io vga_r        25
+set_io vga_g        26
+set_io vga_b        27
+set_io vga_hsync    33
+set_io vga_vsync    34
